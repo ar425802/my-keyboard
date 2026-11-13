@@ -545,7 +545,6 @@ public class KeyboardView extends View {
         mUserLetterColor = Settings.readLetterColor(prefs) | 0xFF000000;
         mUserIconFilter = mHasUserLetterColor
                 ? new PorterDuffColorFilter(mUserLetterColor, PorterDuff.Mode.SRC_IN) : null;
-        mLanguageKeyShowsCode = Settings.readLanguageKeyShowsCode(prefs);
 
         final int version = prefs.getInt(Settings.PREF_BACKGROUND_IMAGE_VERSION, 0);
         if (version != mBackgroundVersion) {

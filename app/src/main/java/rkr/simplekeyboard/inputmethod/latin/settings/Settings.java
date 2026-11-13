@@ -64,7 +64,7 @@ public final class Settings extends BroadcastReceiver implements SharedPreferenc
     public static final String PREF_SHOW_NUMBER_ROW = "pref_show_number_row";
     public static final String PREF_SPACE_SWIPE = "pref_space_swipe";
     public static final String PREF_DELETE_SWIPE = "pref_delete_swipe";
-    public static final String PREF_SPACE_SWIPE_LANGUAGE = "pref_space_swipe_language";
+    public static final String PREF_SPACE_SWIPE_ACTION = "pref_space_swipe_action";
     public static final String PREF_LANGUAGE_KEY_SHOWS_CODE = "pref_language_key_shows_code";
     public static final String PREF_ENABLE_CLIPBOARD = "pref_enable_clipboard";
     public static final String PREF_BACKGROUND_IMAGE_VERSION = "pref_background_image_version";
@@ -251,11 +251,20 @@ public final class Settings extends BroadcastReceiver implements SharedPreferenc
     }
 
     public static boolean readSpaceSwipeEnabled(final SharedPreferences prefs) {
-        return prefs.getBoolean(PREF_SPACE_SWIPE, false);
+        final String action = prefs.getString(PREF_SPACE_SWIPE_ACTION, null);
+        if (action == null) {
+            return prefs.getBoolean(PREF_SPACE_SWIPE, false);
+        }
+        return "cursor".equals(action);
     }
 
     public static boolean readSpaceSwipeLanguage(final SharedPreferences prefs) {
-        return prefs.getBoolean(PREF_SPACE_SWIPE_LANGUAGE, true);
+        final String action = prefs.getString(PREF_SPACE_SWIPE_ACTION, null);
+        if (action == null) {
+            // Nobody picked an action yet: swipe changes language unless the old cursor swipe was on.
+            return !prefs.getBoolean(PREF_SPACE_SWIPE, false);
+        }
+        return "language".equals(action);
     }
 
     public static boolean readLanguageKeyShowsCode(final SharedPreferences prefs) {

@@ -26,6 +26,7 @@ import android.os.UserManager;
 import android.util.Log;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +39,20 @@ public final class ClipboardHistory implements ClipboardManager.OnPrimaryClipCha
     private static final String TAG = "ClipboardHistory";
     private static final String PREFS_NAME = "clipboard_history";
     private static final String KEY_ITEMS = "items";
-    private static final int MAX_ITEMS = 30;
+    private static final int MAX_ITEMS = 30;       // unpinned items kept
+    private static final int MAX_PINNED = 30;
     private static final int MAX_ITEM_LENGTH = 20000;
+
+    /** One copied text, which the user may have pinned so it never gets pushed out. */
+    public static final class Entry {
+        public final String text;
+        public final boolean pinned;
+
+        Entry(final String text, final boolean pinned) {
+            this.text = text;
+            this.pinned = pinned;
+        }
+    }
 
     public interface Listener {
         void onClipboardHistoryChanged();
@@ -49,7 +62,8 @@ public final class ClipboardHistory implements ClipboardManager.OnPrimaryClipCha
 
     private final Context mContext;
     private final ClipboardManager mClipboardManager;
-    private final ArrayList<String> mItems = new ArrayList<>();
+    private final ArrayList<String> mItems = new ArrayList<>();   // newest first
+    private final ArrayList<String> mPinned = new ArrayList<>();  // pin order
     private Listener mListener;
     private boolean mRegistered;
     private boolean mLoaded;
@@ -85,19 +99,44 @@ public final class ClipboardHistory implements ClipboardManager.OnPrimaryClipCha
         }
     }
 
-    public synchronized List<String> getItems() {
+    /** Pinned entries first, then the rest from newest to oldest. */
+    public synchronized List<Entry> getEntries() {
         load();
-        return new ArrayList<>(mItems);
+        final ArrayList<Entry> result = new ArrayList<>();
+        for (final String text : mPinned) {
+            result.add(new Entry(text, true));
+        }
+        for (final String text : mItems) {
+            if (!mPinned.contains(text)) {
+                result.add(new Entry(text, false));
+            }
+        }
+        return result;
     }
 
-    public synchronized void remove(final String text) {
-        mItems.remove(text);
+    public synchronized void togglePin(final String text) {
+        if (mPinned.contains(text)) {
+            mPinned.remove(text);
+        } else if (mPinned.size() < MAX_PINNED) {
+            mPinned.add(0, text);
+            if (!mItems.contains(text)) {
+                mItems.add(0, text);
+            }
+        }
         save();
         notifyChanged();
     }
 
+    public synchronized void remove(final String text) {
+        mItems.remove(text);
+        mPinned.remove(text);
+        save();
+        notifyChanged();
+    }
+
+    /** Removes everything except pinned entries. */
     public synchronized void clear() {
-        mItems.clear();
+        mItems.retainAll(mPinned);
         save();
         notifyChanged();
     }
@@ -145,8 +184,12 @@ public final class ClipboardHistory implements ClipboardManager.OnPrimaryClipCha
         load();
         mItems.remove(value);          // no duplicates: move to the top instead
         mItems.add(0, value);
-        while (mItems.size() > MAX_ITEMS) {
-            mItems.remove(mItems.size() - 1);
+        // Trim only unpinned entries.
+        int unpinned = 0;
+        for (int i = 0; i < mItems.size(); i++) {
+            if (!mPinned.contains(mItems.get(i)) && ++unpinned > MAX_ITEMS) {
+                mItems.remove(i--);
+            }
         }
         save();
         notifyChanged();
@@ -180,17 +223,25 @@ public final class ClipboardHistory implements ClipboardManager.OnPrimaryClipCha
                 return;
             }
             final JSONArray array = new JSONArray(json);
-            final ArrayList<String> loaded = new ArrayList<>();
-            for (int i = 0; i < array.length() && loaded.size() < MAX_ITEMS; i++) {
-                final String item = array.optString(i, null);
-                if (item != null && !item.isEmpty() && !mItems.contains(item)) {
-                    loaded.add(item);
+            for (int i = 0; i < array.length(); i++) {
+                final Object raw = array.opt(i);
+                String text = null;
+                boolean pinned = false;
+                if (raw instanceof JSONObject) {
+                    text = ((JSONObject) raw).optString("t", null);
+                    pinned = ((JSONObject) raw).optBoolean("p", false);
+                } else if (raw instanceof String) {
+                    text = (String) raw;   // older format
                 }
-            }
-            // Anything copied before the load stays on top.
-            for (final String item : loaded) {
-                if (!mItems.contains(item)) {
-                    mItems.add(item);
+                if (text == null || text.isEmpty()) {
+                    continue;
+                }
+                // Anything copied before the load finished stays on top.
+                if (!mItems.contains(text)) {
+                    mItems.add(text);
+                }
+                if (pinned && !mPinned.contains(text)) {
+                    mPinned.add(text);
                 }
             }
         } catch (final Exception e) {
@@ -205,7 +256,10 @@ public final class ClipboardHistory implements ClipboardManager.OnPrimaryClipCha
         try {
             final JSONArray array = new JSONArray();
             for (final String item : mItems) {
-                array.put(item);
+                final JSONObject object = new JSONObject();
+                object.put("t", item);
+                object.put("p", mPinned.contains(item));
+                array.put(object);
             }
             mContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                     .putString(KEY_ITEMS, array.toString()).apply();

@@ -39,29 +39,17 @@
         android:title="@string/pref_use_on_screen"
         android:summary="@string/pref_use_on_screen_summary"
         android:defaultValue="false" />
-    <SwitchPreference
-        android:key="pref_enable_ime_switch"
-        android:title="@string/pref_enable_ime_switch"
-        android:dependency="pref_show_language_switch_key"
-        android:defaultValue="false" />
-    <SwitchPreference
-        android:key="pref_space_swipe"
-        android:title="@string/space_swipe"
-        android:defaultValue="false" />
+    <ListPreference
+        android:key="pref_space_swipe_action"
+        android:title="@string/space_swipe_action"
+        android:summary="%s"
+        android:entries="@array/space_swipe_action_names"
+        android:entryValues="@array/space_swipe_action_values"
+        android:defaultValue="language" />
     <SwitchPreference
         android:key="pref_delete_swipe"
         android:title="@string/delete_swipe"
         android:defaultValue="false" />
-    <SwitchPreference
-        android:key="pref_space_swipe_language"
-        android:title="@string/space_swipe_language"
-        android:summary="@string/space_swipe_language_summary"
-        android:defaultValue="true" />
-    <SwitchPreference
-        android:key="pref_language_key_shows_code"
-        android:title="@string/language_key_shows_code"
-        android:summary="@string/language_key_shows_code_summary"
-        android:defaultValue="true" />
     <SwitchPreference
         android:key="pref_enable_clipboard"
         android:title="@string/enable_clipboard"

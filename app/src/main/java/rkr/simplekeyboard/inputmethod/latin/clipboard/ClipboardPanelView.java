@@ -23,6 +23,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -79,7 +80,7 @@ public final class ClipboardPanelView extends LinearLayout {
         });
         header.addView(mClose);
 
-        addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(40)));
+        addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
 
         mScroll = new ScrollView(context);
         mList = new LinearLayout(context);
@@ -119,38 +120,40 @@ public final class ClipboardPanelView extends LinearLayout {
 
     public void refresh() {
         mList.removeAllViews();
-        final List<String> items = mHistory == null ? null : mHistory.getItems();
-        if (items == null || items.isEmpty()) {
+        final List<ClipboardHistory.Entry> entries =
+                mHistory == null ? null : mHistory.getEntries();
+        if (entries == null || entries.isEmpty()) {
             final TextView empty = new TextView(getContext());
             empty.setText(R.string.clipboard_empty);
             empty.setTextColor(mTextColor);
             empty.setAlpha(0.7f);
             empty.setGravity(Gravity.CENTER);
-            empty.setPadding(dp(16), dp(28), dp(16), dp(16));
+            empty.setPadding(dp(16), dp(20), dp(16), dp(12));
             mList.addView(empty);
             mClearAll.setVisibility(View.INVISIBLE);
             return;
         }
         mClearAll.setVisibility(View.VISIBLE);
-        for (final String item : items) {
-            mList.addView(makeRow(item));
+        for (final ClipboardHistory.Entry entry : entries) {
+            mList.addView(makeRow(entry));
         }
     }
 
-    private View makeRow(final String text) {
+    private View makeRow(final ClipboardHistory.Entry entry) {
         final Context context = getContext();
+        final String text = entry.text;
         final LinearLayout row = new LinearLayout(context);
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         final GradientDrawable shape = new GradientDrawable();
         shape.setCornerRadius(dp(10));
-        shape.setColor(Color.argb(32, Color.red(mTextColor), Color.green(mTextColor),
-                Color.blue(mTextColor)));
+        shape.setColor(Color.argb(entry.pinned ? 56 : 30, Color.red(mTextColor),
+                Color.green(mTextColor), Color.blue(mTextColor)));
         row.setBackground(shape);
-        row.setPadding(dp(12), dp(4), dp(2), dp(4));
+        row.setPadding(dp(12), dp(2), dp(2), dp(2));
         final LayoutParams rowParams = new LayoutParams(LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT);
-        rowParams.topMargin = dp(6);
+        rowParams.topMargin = dp(5);
         row.setLayoutParams(rowParams);
 
         final TextView label = new TextView(context);
@@ -159,8 +162,20 @@ public final class ClipboardPanelView extends LinearLayout {
         label.setTextSize(15);
         label.setMaxLines(2);
         label.setEllipsize(TextUtils.TruncateAt.END);
-        label.setPadding(0, dp(8), dp(8), dp(8));
+        label.setPadding(0, dp(7), dp(6), dp(7));
         row.addView(label, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+
+        // Pin button: a filled pin means the entry stays until you unpin it.
+        final ImageView pin = new ImageView(context);
+        pin.setImageResource(R.drawable.ic_pin);
+        pin.setColorFilter(mTextColor, android.graphics.PorterDuff.Mode.SRC_IN);
+        pin.setAlpha(entry.pinned ? 1.0f : 0.35f);
+        pin.setPadding(dp(9), dp(9), dp(9), dp(9));
+        pin.setContentDescription(context.getString(R.string.clipboard_pin));
+        pin.setOnClickListener(v -> {
+            if (mHistory != null) mHistory.togglePin(text);
+        });
+        row.addView(pin, new LayoutParams(dp(40), dp(40)));
 
         final TextView delete = new TextView(context);
         delete.setText("\u2715");
@@ -168,11 +183,10 @@ public final class ClipboardPanelView extends LinearLayout {
         delete.setAlpha(0.7f);
         delete.setTextSize(15);
         delete.setGravity(Gravity.CENTER);
-        delete.setPadding(dp(12), dp(8), dp(12), dp(8));
         delete.setOnClickListener(v -> {
             if (mHistory != null) mHistory.remove(text);
         });
-        row.addView(delete);
+        row.addView(delete, new LayoutParams(dp(40), dp(40)));
 
         row.setOnClickListener(v -> {
             if (mCallback != null) mCallback.onClipboardTextSelected(text);
