@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 
-package rkr.simplekeyboard.inputmethod.latin.settings;
 
 
 package rkr.simplekeyboard.inputmethod.latin;
